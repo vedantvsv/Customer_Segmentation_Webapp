@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Charts & Visualizations</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+        
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 15px 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .navbar h1 {
+            color: white;
+            font-size: 1.5em;
+        }
+        
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 20px;
+            margin-left: 10px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-size: 1.1em;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .chart-container h2 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .chart-wrapper {
+            text-align: center;
+        }
+        
+        .chart-wrapper img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+        }
+        
+        .legend {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 5px;
+        }
+        
+        .info-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        
+        .info-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .info-card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        
+        .info-card ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .info-card li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .info-card li:last-child {
+            border-bottom: none;
+        }
+        
+        .info-card strong {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <h1>📈 Charts & Visualizations</h1>
+        <div>
+            <a href="/">Home</a>
+            <a href="/results">Results</a>
+            <a href="/customers">Customers</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <a href="/results" class="back-link">← Back to Results</a>
+        
+        <div class="chart-container">
+            <h2>Customer Segmentation & Churn Risk Distribution</h2>
+            <div class="chart-wrapper">
+                <img src="data:image/png;base64,{{ chart_url }}" alt="Charts">
+            </div>
+        </div>
+        
+        <div class="info-cards">
+            <div class="info-card">
+                <h3>📊 Segment Descriptions</h3>
+                <ul>
+                    <li><strong>Champions</strong> - Best customers, bought recently, often, and spend the most</li>
+                    <li><strong>Loyal</strong> - Frequent buyers with good recency</li>
+                    <li><strong>At Risk</strong> - Were good customers but haven't purchased recently</li>
+                    <li><strong>Hibernating</strong> - Low activity, haven't purchased in a while</li>
+                    <li><strong>Others</strong> - Customers not fitting other categories</li>
+                </ul>
+            </div>
+            
+            <div class="info-card">
+                <h3>⚠️ Risk Level Definitions</h3>
+                <ul>
+                    <li><strong>High Risk (>70%)</strong> - Very likely to churn, immediate action needed</li>
+                    <li><strong>Medium Risk (40-70%)</strong> - Should be monitored, consider retention offers</li>
+                    <li><strong>Low Risk (20-40%)</strong> - Relatively stable, keep engaged</li>
+                    <li><strong>Safe (<20%)</strong> - Low churn probability, focus on loyalty</li>
+                </ul>
+            </div>
+            
+            <div class="info-card">
+                <h3>💡 Business Actions</h3>
+                <ul>
+                    <li><strong>Champions</strong> - VIP rewards, early access to new products</li>
+                    <li><strong>At Risk</strong> - Win-back campaigns, personalized offers</li>
+                    <li><strong>Loyal</strong> - Loyalty programs, referral incentives</li>
+                    <li><strong>Hibernating</strong> - Re-engagement emails, deep discounts</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

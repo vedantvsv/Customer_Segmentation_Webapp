@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Segmentation & Churn Prediction</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 50px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+            margin-bottom: 30px;
+        }
+        
+        .upload-area:hover {
+            background: #f8f9ff;
+            border-color: #764ba2;
+        }
+        
+        .upload-area input[type="file"] {
+            display: none;
+        }
+        
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+        
+        .upload-area h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .upload-area p {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 20px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 40px;
+        }
+        
+        .feature-card {
+            background: #f8f9ff;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+        }
+        
+        .feature-card h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        
+        .feature-card p {
+            color: #666;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+        
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+        
+        .flash {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .flash.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .flash.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .format-info {
+            background: #e7f3ff;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+        }
+        
+        .format-info h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .format-info ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .format-info li {
+            padding: 5px 0;
+            color: #555;
+        }
+        
+        .format-info li:before {
+            content: "✓ ";
+            color: #667eea;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Customer Segmentation</h1>
+            <p>Upload your customer data to segment customers and predict churn</p>
+        </div>
+        
+        <div class="content">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="flash {{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+            
+            <form action="/upload" method="post" enctype="multipart/form-data" id="uploadForm">
+                <label class="upload-area" for="fileInput">
+                    <div class="upload-icon">📁</div>
+                    <h3>Click to Upload or Drag & Drop</h3>
+                    <p>Supported formats: CSV, Excel (.xlsx, .xls)</p>
+                    <input type="file" name="file" id="fileInput" accept=".csv,.xlsx,.xls" required>
+                </label>
+                
+                <div style="text-align: center;">
+                    <button type="submit" class="btn">Process Data</button>
+                </div>
+            </form>
+            
+            <div class="features">
+                <div class="feature-card">
+                    <h4>📊 Customer Segmentation</h4>
+                    <p>Automatically categorize customers into Champions, Loyal, At Risk, Hibernating, and more segments</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h4>⚠️ Churn Prediction</h4>
+                    <p>Predict which customers are likely to churn based on their purchase behavior</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h4>📈 Interactive Dashboard</h4>
+                    <p>View detailed analytics, charts, and export results to Excel</p>
+                </div>
+            </div>
+            
+            <div class="format-info">
+                <h4>Required Data Format</h4>
+                <ul>
+                    <li><strong>CustomerID</strong> - Unique customer identifier</li>
+                    <li><strong>InvoiceDate</strong> - Date of transaction (YYYY-MM-DD)</li>
+                    <li><strong>InvoiceNo</strong> - Transaction/invoice number</li>
+                    <li><strong>Revenue</strong> (or Total/Amount/Price) - Transaction amount</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function() {
+            if (this.files.length > 0) {
+                document.querySelector('.upload-area h3').textContent = 'Selected: ' + this.files[0].name;
+            }
+        });
+    </script>
+</body>
+</html>
