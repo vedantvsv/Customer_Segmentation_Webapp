@@ -45,9 +45,6 @@ app.secret_key = os.urandom(32)
 UPLOAD_FOLDER = 'uploads'
 SESSION_DATA_FOLDER = os.path.join(UPLOAD_FOLDER, 'session_data')
 STATIC_FOLDER = 'static'
-PRIMARY_CHURN_MODEL_PATH = 'logistic_regression.pkl'
-LEGACY_CHURN_MODEL_PATH = 'logistics_regression.pkl'
-CHURN_MODEL_PATHS = [PRIMARY_CHURN_MODEL_PATH, LEGACY_CHURN_MODEL_PATH]
 ALLOWED_EXTENSIONS = {'csv', 'xlsx', 'xls'}
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -88,33 +85,6 @@ def _load_state():
         return None
     with open(path, 'rb') as f:
         return pickle.load(f)
-
-
-def _load_churn_model():
-    for path in CHURN_MODEL_PATHS:
-        if not os.path.exists(path):
-            continue
-        try:
-            with open(path, 'rb') as f:
-                payload = pickle.load(f)
-            if isinstance(payload, dict):
-                model = payload.get('model')
-                scaler = payload.get('scaler')
-                if model is not None:
-                    return model, scaler
-            elif hasattr(payload, 'predict_proba'):
-                return payload, None
-        except Exception:
-            continue
-    return None, None
-
-
-def _save_churn_model(model, scaler):
-    if model is None or scaler is None:
-        return
-    payload = {'model': model, 'scaler': scaler}
-    with open(PRIMARY_CHURN_MODEL_PATH, 'wb') as f:
-        pickle.dump(payload, f)
 
 
 def _chart_path(filename):
@@ -220,25 +190,12 @@ def predict_churn(state):
 
     df = state['df']
 
-    if 'Churn_Probability' not in df.columns:
-        feature_cols = ['Recency', 'Frequency', 'Monetary', 'AOV']
-        X = df[feature_cols].fillna(0)
-        y = (df['Recency'] > 180).astype(int)
-
-        if len(y.unique()) <= 1:
-            probs = np.zeros(len(y))
-            model, scaler = None, None
-        else:
-            model, scaler = _load_churn_model()
-            if model is not None and scaler is not None:
-                try:
-                    probs = model.predict_proba(scaler.transform(X))[:, 1]
-                except Exception:
-                    probs, model, scaler = train_churn_model(df)
-                    _save_churn_model(model, scaler)
-            else:
-                probs, model, scaler = train_churn_model(df)
-                _save_churn_model(model, scaler)
+    if (
+        'Churn_Probability' not in df.columns
+        or 'churn_model' not in state
+        or 'churn_scaler' not in state
+    ):
+        probs, model, scaler = train_churn_model(df)
 
         df['Churn_Probability'] = probs
 
@@ -254,13 +211,15 @@ def predict_churn(state):
         df['Risk_Level'] = df['Churn_Probability'].apply(risk)
 
         state['df'] = df
+        state['churn_model'] = model
+        state['churn_scaler'] = scaler
         if model is not None:
             generate_feature_importance_chart(model)
 
         if has_request_context():
             _save_state(state)
     else:
-        model, _ = _load_churn_model()
+        model = state.get('churn_model')
         if model is not None:
             generate_feature_importance_chart(model)
 
