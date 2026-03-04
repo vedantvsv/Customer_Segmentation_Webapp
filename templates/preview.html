@@ -67,7 +67,7 @@
 
         .stats {
             display: grid;
-            grid-template-columns: repeat(2, minmax(140px, 1fr));
+            grid-template-columns: repeat(4, minmax(140px, 1fr));
             gap: 10px;
             margin-top: 12px;
         }
@@ -140,8 +140,16 @@
             border-color: #dae2ee;
         }
 
+        .footer {
+            margin-top: 24px;
+            text-align: center;
+            color: #475569;
+            font-size: 0.87rem;
+            line-height: 1.6;
+        }
+
         @media (max-width: 900px) {
-            .stats { grid-template-columns: 1fr; }
+            .stats { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
         }
     </style>
 </head>
@@ -164,8 +172,16 @@
                     <span>Total rows</span>
                 </div>
                 <div class="stat">
-                    <b>{{ missing_values|length }}</b>
-                    <span>Columns checked for missing values</span>
+                    <b>{{ col_count }}</b>
+                    <span>Total columns</span>
+                </div>
+                <div class="stat">
+                    <b>{{ unique_customers }}</b>
+                    <span>Unique customers</span>
+                </div>
+                <div class="stat">
+                    <b>{{ total_missing_values }}</b>
+                    <span>Missing values</span>
                 </div>
             </div>
             <div class="actions">
@@ -221,6 +237,12 @@
                 </table>
             </div>
         </section>
+
+        <footer class="footer">
+            <div>Customer Segmentation &amp; Churn Prediction Platform</div>
+            <div>Built by Vedant Vasava</div>
+            <div>Machine Learning • Data Analytics • Flask</div>
+        </footer>
     </div>
 </body>
 </html>

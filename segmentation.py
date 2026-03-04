@@ -146,7 +146,7 @@ def save_cluster_scatter_plot(rfm, static_dir):
         edgecolors="white",
         linewidth=0.5
     )
-    plt.title("Customer Clusters (Frequency vs Revenue)")
+    plt.title("Customer Cluster Scatter Plot")
     plt.xlabel("Frequency")
     plt.ylabel("Revenue")
     plt.colorbar(scatter, label="Cluster")

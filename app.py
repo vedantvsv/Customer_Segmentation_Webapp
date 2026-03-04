@@ -5,6 +5,7 @@ Flask Web Application for Customer Segmentation + ML Clustering + Churn Predicti
 import os
 import pickle
 import uuid
+import zipfile
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -141,7 +142,7 @@ def generate_feature_importance_chart(model):
 
     plt.figure(figsize=(7.5, 4.5))
     plt.bar(labels, values, color=colors)
-    plt.title('Churn Model Feature Importance (Logistic Regression)')
+    plt.title('Churn Model Feature Importance')
     plt.xlabel('Features')
     plt.ylabel('Coefficient')
     plt.axhline(0, color='#334155', linewidth=1)
@@ -324,6 +325,9 @@ def upload_file():
                 'preview_rows': df.head(10).fillna('').to_dict('records'),
                 'preview_columns': df.columns.tolist(),
                 'row_count': int(len(df)),
+                'col_count': int(df.shape[1]),
+                'unique_customers': int(df['CustomerID'].nunique()),
+                'total_missing_values': int(df.isnull().sum().sum()),
                 'missing_values': {k: int(v) for k, v in df.isna().sum().to_dict().items()}
             }
 
@@ -364,6 +368,28 @@ def results():
     }
 
     at_risk_customers = df.nlargest(10, 'Churn_Probability').to_dict('records')
+    total_customers = max(1, len(df))
+    champions_count = int(segment_counts.get('Champions', 0))
+    at_risk_count = int(segment_counts.get('At Risk', 0))
+    hibernating_count = int(segment_counts.get('Hibernating', 0))
+    champions_percentage = round((champions_count / total_customers) * 100, 1)
+
+    insights = [
+        f'Champions customers represent {champions_percentage}% of the customer base.',
+        f'At Risk customers identified: {at_risk_count}.',
+        f'Hibernating customers identified: {hibernating_count}.'
+    ]
+
+    if champions_percentage > 10:
+        insights.append('Strong Champions share detected: prioritize VIP loyalty programs and premium retention offers.')
+    if at_risk_count > 0:
+        insights.append('At Risk segment exists: launch targeted retention campaigns with personalized win-back journeys.')
+    if hibernating_count > 0:
+        insights.append('Hibernating customers found: run re-engagement campaigns with time-bound incentives.')
+
+    highest_churn_customers = df.nlargest(3, 'Churn_Probability')['CustomerID'].astype(str).tolist()
+    if highest_churn_customers:
+        insights.append(f'Highest churn-probability customers: {", ".join(highest_churn_customers)}.')
 
     return render_template(
         'results.html',
@@ -371,7 +397,8 @@ def results():
         segment_counts=segment_counts.to_dict(),
         cluster_counts=cluster_counts.to_dict(),
         summary=summary,
-        at_risk_customers=at_risk_customers
+        at_risk_customers=at_risk_customers,
+        insights=insights
     )
 
 
@@ -392,7 +419,7 @@ def customers():
     page = request.args.get('page', 1, type=int)
     per_page = 25
 
-    segments = ['All', 'Champions', 'Loyal', 'At Risk', 'Hibernating']
+    segments = ['All', 'Champions', 'Loyal', 'At Risk', 'Hibernating', 'Others']
     if selected_segment not in segments:
         selected_segment = 'All'
 
@@ -472,7 +499,7 @@ def charts():
 
     seg = df['Segment'].value_counts()
     axes[0].pie(seg.values, labels=seg.index, autopct='%1.1f%%')
-    axes[0].set_title("RFM Segments")
+    axes[0].set_title("Customer Segment Distribution")
 
     clusters = df['Cluster'].value_counts().sort_index()
     axes[1].bar(clusters.index.astype(str), clusters.values)
@@ -486,11 +513,55 @@ def charts():
     plt.savefig(overview_path, format='png', dpi=140)
     plt.close()
 
+    plt.figure(figsize=(6, 5))
+    plt.pie(seg.values, labels=seg.index, autopct='%1.1f%%')
+    plt.title("Customer Segment Distribution")
+    plt.tight_layout()
+    plt.savefig(_chart_path('segment_pie.png'), dpi=140)
+    plt.close()
+
+    plt.figure(figsize=(6, 5))
+    plt.bar(clusters.index.astype(str), clusters.values, color='#0f766e')
+    plt.title("ML Cluster Distribution")
+    plt.xlabel("Cluster")
+    plt.ylabel("Customers")
+    plt.tight_layout()
+    plt.savefig(_chart_path('cluster_distribution.png'), dpi=140)
+    plt.close()
+
     return render_template(
         "charts.html",
         overview_chart_url=_chart_url('overview_charts.png'),
         cluster_scatter_url=_chart_url('customer_clusters.png'),
         feature_importance_url=_chart_url('feature_importance.png')
+    )
+
+
+@app.route('/download-charts')
+def download_charts():
+    chart_files = [
+        'segment_pie.png',
+        'cluster_distribution.png',
+        'customer_clusters.png',
+        'feature_importance.png'
+    ]
+    existing = [name for name in chart_files if os.path.exists(_chart_path(name))]
+
+    if not existing:
+        flash('No charts available to download yet.', 'error')
+        return redirect(url_for('charts'))
+
+    output = io.BytesIO()
+    with zipfile.ZipFile(output, mode='w', compression=zipfile.ZIP_DEFLATED) as zf:
+        for name in existing:
+            zf.write(_chart_path(name), arcname=name)
+    output.seek(0)
+
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name='customer_analytics_charts.zip',
+        mimetype='application/zip'
     )
 
 
@@ -535,6 +606,9 @@ def preview():
         preview_rows=state.get('preview_rows', []),
         preview_columns=state.get('preview_columns', []),
         row_count=state.get('row_count', 0),
+        col_count=state.get('col_count', 0),
+        unique_customers=state.get('unique_customers', 0),
+        total_missing_values=state.get('total_missing_values', 0),
         missing_values=state.get('missing_values', {})
     )
 
