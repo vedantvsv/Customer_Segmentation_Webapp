@@ -31,7 +31,6 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import io
-import base64
 
 from segmentation import full_pipeline
 
@@ -44,7 +43,10 @@ app.secret_key = os.urandom(32)
 
 UPLOAD_FOLDER = 'uploads'
 SESSION_DATA_FOLDER = os.path.join(UPLOAD_FOLDER, 'session_data')
-CHURN_MODEL_PATH = 'logistics_regression.pkl'
+STATIC_FOLDER = 'static'
+PRIMARY_CHURN_MODEL_PATH = 'logistic_regression.pkl'
+LEGACY_CHURN_MODEL_PATH = 'logistics_regression.pkl'
+CHURN_MODEL_PATHS = [PRIMARY_CHURN_MODEL_PATH, LEGACY_CHURN_MODEL_PATH]
 ALLOWED_EXTENSIONS = {'csv', 'xlsx', 'xls'}
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -52,6 +54,7 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(SESSION_DATA_FOLDER, exist_ok=True)
+os.makedirs(STATIC_FOLDER, exist_ok=True)
 
 # --------------------------------------------------
 # HELPERS
@@ -87,26 +90,64 @@ def _load_state():
 
 
 def _load_churn_model():
-    if not os.path.exists(CHURN_MODEL_PATH):
-        return None, None
-    try:
-        with open(CHURN_MODEL_PATH, 'rb') as f:
-            payload = pickle.load(f)
-        if isinstance(payload, dict):
-            model = payload.get('model')
-            scaler = payload.get('scaler')
-            return model, scaler
-        return None, None
-    except Exception:
-        return None, None
+    for path in CHURN_MODEL_PATHS:
+        if not os.path.exists(path):
+            continue
+        try:
+            with open(path, 'rb') as f:
+                payload = pickle.load(f)
+            if isinstance(payload, dict):
+                model = payload.get('model')
+                scaler = payload.get('scaler')
+                if model is not None:
+                    return model, scaler
+            elif hasattr(payload, 'predict_proba'):
+                return payload, None
+        except Exception:
+            continue
+    return None, None
 
 
 def _save_churn_model(model, scaler):
     if model is None or scaler is None:
         return
     payload = {'model': model, 'scaler': scaler}
-    with open(CHURN_MODEL_PATH, 'wb') as f:
+    with open(PRIMARY_CHURN_MODEL_PATH, 'wb') as f:
         pickle.dump(payload, f)
+
+
+def _chart_path(filename):
+    return os.path.join(STATIC_FOLDER, filename)
+
+
+def _chart_url(filename):
+    path = _chart_path(filename)
+    if not os.path.exists(path):
+        return None
+    return url_for('static', filename=filename, v=int(os.path.getmtime(path)))
+
+
+def generate_feature_importance_chart(model):
+    if model is None or not hasattr(model, 'coef_'):
+        return
+
+    coeffs = np.ravel(model.coef_)
+    if coeffs.size < 3:
+        return
+
+    labels = ['Recency', 'Frequency', 'Revenue']
+    values = [coeffs[0], coeffs[1], coeffs[2]]
+    colors = ['#ef4444' if v < 0 else '#0f766e' for v in values]
+
+    plt.figure(figsize=(7.5, 4.5))
+    plt.bar(labels, values, color=colors)
+    plt.title('Churn Model Feature Importance (Logistic Regression)')
+    plt.xlabel('Features')
+    plt.ylabel('Coefficient')
+    plt.axhline(0, color='#334155', linewidth=1)
+    plt.tight_layout()
+    plt.savefig(_chart_path('feature_importance.png'), dpi=140)
+    plt.close()
 
 
 # --------------------------------------------------
@@ -123,7 +164,7 @@ def process_segmentation(df, revenue_col):
     if revenue_col != "Revenue":
         df["Revenue"] = df[revenue_col]
 
-    rfm = full_pipeline(df)
+    rfm = full_pipeline(df, static_dir=STATIC_FOLDER)
 
     return rfm
 
@@ -173,6 +214,9 @@ def train_churn_model(rfm_df):
 
 def predict_churn(state):
 
+    if 'df' not in state:
+        return state
+
     df = state['df']
 
     if 'Churn_Probability' not in df.columns:
@@ -209,9 +253,15 @@ def predict_churn(state):
         df['Risk_Level'] = df['Churn_Probability'].apply(risk)
 
         state['df'] = df
+        if model is not None:
+            generate_feature_importance_chart(model)
 
         if has_request_context():
             _save_state(state)
+    else:
+        model, _ = _load_churn_model()
+        if model is not None:
+            generate_feature_importance_chart(model)
 
     return state
 
@@ -267,16 +317,19 @@ def upload_file():
                 flash("Revenue column not found", 'error')
                 return redirect(url_for('index'))
 
-            result_df = process_segmentation(df, revenue_col)
-
             state = {
                 'filename': filename,
-                'df': result_df
+                'filepath': filepath,
+                'revenue_col': revenue_col,
+                'preview_rows': df.head(10).fillna('').to_dict('records'),
+                'preview_columns': df.columns.tolist(),
+                'row_count': int(len(df)),
+                'missing_values': {k: int(v) for k, v in df.isna().sum().to_dict().items()}
             }
 
             _save_state(state)
 
-            return redirect(url_for('results'))
+            return redirect(url_for('preview'))
 
         except Exception as e:
             flash(str(e), 'error')
@@ -292,6 +345,9 @@ def results():
     state = _load_state()
     if state is None:
         return redirect(url_for('index'))
+
+    if 'df' not in state:
+        return redirect(url_for('preview'))
 
     state = predict_churn(state)
     df = state['df']
@@ -326,6 +382,9 @@ def customers():
     if state is None:
         return redirect(url_for('index'))
 
+    if 'df' not in state:
+        return redirect(url_for('preview'))
+
     state = predict_churn(state)
     df = state['df']
 
@@ -333,7 +392,9 @@ def customers():
     page = request.args.get('page', 1, type=int)
     per_page = 25
 
-    segments = ['All'] + sorted(df['Segment'].dropna().unique().tolist())
+    segments = ['All', 'Champions', 'Loyal', 'At Risk', 'Hibernating']
+    if selected_segment not in segments:
+        selected_segment = 'All'
 
     filtered_df = df
     if selected_segment != 'All':
@@ -363,6 +424,9 @@ def segment_detail(segment_name):
     state = _load_state()
     if state is None:
         return redirect(url_for('index'))
+
+    if 'df' not in state:
+        return redirect(url_for('preview'))
 
     state = predict_churn(state)
     df = state['df']
@@ -398,6 +462,9 @@ def charts():
     if state is None:
         return redirect(url_for('index'))
 
+    if 'df' not in state:
+        return redirect(url_for('preview'))
+
     state = predict_churn(state)
     df = state['df']
 
@@ -415,14 +482,16 @@ def charts():
 
     plt.tight_layout()
 
-    img = io.BytesIO()
-    plt.savefig(img, format='png')
-    img.seek(0)
-    chart_url = base64.b64encode(img.getvalue()).decode()
-
+    overview_path = _chart_path('overview_charts.png')
+    plt.savefig(overview_path, format='png', dpi=140)
     plt.close()
 
-    return render_template("charts.html", chart_url=chart_url)
+    return render_template(
+        "charts.html",
+        overview_chart_url=_chart_url('overview_charts.png'),
+        cluster_scatter_url=_chart_url('customer_clusters.png'),
+        feature_importance_url=_chart_url('feature_importance.png')
+    )
 
 
 @app.route('/download')
@@ -431,6 +500,9 @@ def download():
     state = _load_state()
     if state is None:
         return redirect(url_for('index'))
+
+    if 'df' not in state:
+        return redirect(url_for('preview'))
 
     state = predict_churn(state)
     df = state['df']
@@ -446,6 +518,55 @@ def download():
         download_name='segmentation_results.xlsx',
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
+
+
+@app.route('/preview')
+def preview():
+    state = _load_state()
+    if state is None:
+        return redirect(url_for('index'))
+
+    if 'df' in state:
+        return redirect(url_for('results'))
+
+    return render_template(
+        'preview.html',
+        filename=state.get('filename'),
+        preview_rows=state.get('preview_rows', []),
+        preview_columns=state.get('preview_columns', []),
+        row_count=state.get('row_count', 0),
+        missing_values=state.get('missing_values', {})
+    )
+
+
+@app.route('/run-segmentation', methods=['POST'])
+def run_segmentation():
+    state = _load_state()
+    if state is None:
+        return redirect(url_for('index'))
+
+    filepath = state.get('filepath')
+    revenue_col = state.get('revenue_col')
+    filename = state.get('filename')
+
+    if not filepath or not revenue_col or not os.path.exists(filepath):
+        flash('Uploaded file is missing. Please upload again.', 'error')
+        return redirect(url_for('index'))
+
+    try:
+        if filename.lower().endswith('.csv'):
+            df = pd.read_csv(filepath)
+        else:
+            df = pd.read_excel(filepath)
+
+        result_df = process_segmentation(df, revenue_col)
+        state['df'] = result_df
+        _save_state(state)
+
+        return redirect(url_for('results'))
+    except Exception as e:
+        flash(str(e), 'error')
+        return redirect(url_for('preview'))
 
 
 @app.route('/reset')

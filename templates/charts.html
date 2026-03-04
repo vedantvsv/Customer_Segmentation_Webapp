@@ -162,11 +162,37 @@
         <section class="panel">
             <h2>Segmentation and Cluster Distribution</h2>
             <div class="chart">
-                <img src="data:image/png;base64,{{ chart_url }}" alt="Customer segmentation charts">
+                {% if overview_chart_url %}
+                <img src="{{ overview_chart_url }}" alt="Customer segmentation charts">
+                {% else %}
+                <p>Overview chart not available yet.</p>
+                {% endif %}
             </div>
             <div class="actions">
                 <a href="/results" class="btn btn-primary">Back to Results</a>
                 <a href="/download" class="btn btn-alt">Download Excel</a>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Customer Cluster Scatter Plot</h2>
+            <div class="chart">
+                {% if cluster_scatter_url %}
+                <img src="{{ cluster_scatter_url }}" alt="Customer clusters by frequency and revenue">
+                {% else %}
+                <p>Cluster scatter chart not available yet.</p>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Feature Importance (Recency, Frequency, Revenue)</h2>
+            <div class="chart">
+                {% if feature_importance_url %}
+                <img src="{{ feature_importance_url }}" alt="Feature importance for churn model">
+                {% else %}
+                <p>Feature importance chart not available yet.</p>
+                {% endif %}
             </div>
         </section>
 

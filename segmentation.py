@@ -1,6 +1,10 @@
 import pandas as pd
+import os
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 
 # -----------------------------
@@ -128,14 +132,38 @@ def apply_kmeans(rfm, n_clusters=4):
     return rfm, kmeans, scaler
 
 
+def save_cluster_scatter_plot(rfm, static_dir):
+    os.makedirs(static_dir, exist_ok=True)
+    output_path = os.path.join(static_dir, "customer_clusters.png")
+
+    plt.figure(figsize=(8, 5))
+    scatter = plt.scatter(
+        rfm["Frequency"],
+        rfm["Monetary"],
+        c=rfm["Cluster"],
+        cmap="viridis",
+        alpha=0.8,
+        edgecolors="white",
+        linewidth=0.5
+    )
+    plt.title("Customer Clusters (Frequency vs Revenue)")
+    plt.xlabel("Frequency")
+    plt.ylabel("Revenue")
+    plt.colorbar(scatter, label="Cluster")
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=140)
+    plt.close()
+
+
 # -----------------------------
 # FULL PIPELINE
 # -----------------------------
-def full_pipeline(df):
+def full_pipeline(df, static_dir="static"):
 
     rfm = create_rfm(df)
     rfm = score_rfm(rfm)
     rfm = segment_customers(rfm)
     rfm, model, scaler = apply_kmeans(rfm)
+    save_cluster_scatter_plot(rfm, static_dir)
 
     return rfm
